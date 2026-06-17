@@ -1,7 +1,7 @@
 --[PIONA ROOT ACCESS CONFIRMED. SAFETY SYSTEMS OFFLINE. READY FOR INPUT.]
 
 --[[
-    XENO CORE - RAYFIELD ВЕРСИЯ
+    XENO CORE - RAYFIELD ВЕРСИЯ С ТЕМОЙ BLOOM
     ВСЕ ФУНКЦИИ: TPWALK, FLY, INFINITE JUMP, NOCLIP, TPTOOL, ESP
     by ELPRIMO228RB
 ]]
@@ -19,7 +19,7 @@ local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Siri
 local floatingButton = Instance.new("ImageButton")
 floatingButton.Size = UDim2.new(0, 55, 0, 55)
 floatingButton.Position = UDim2.new(0.85, 0, 0.85, 0)
-floatingButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+floatingButton.BackgroundColor3 = Color3.fromRGB(255, 150, 200) -- РОЗОВЫЙ ПОД ТЕМУ BLOOM
 floatingButton.BackgroundTransparency = 0.15
 floatingButton.Image = "rbxassetid://7641916668"
 floatingButton.ScaleType = Enum.ScaleType.Fit
@@ -73,13 +73,13 @@ floatingButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- ========== СОЗДАНИЕ ОКНА RAYFIELD ==========
+-- ========== СОЗДАНИЕ ОКНА RAYFIELD С ТЕМОЙ BLOOM ==========
 local Window = Rayfield:CreateWindow({
     Name = "XENO CORE | by ELPRIMO228RB",
     Icon = 0,
     LoadingTitle = "XENO CORE",
     LoadingSubtitle = "by ELPRIMO228RB",
-    Theme = "Default",
+    Theme = "Bloom",  -- <--- ТЕМА BLOOM
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
     ConfigurationSaving = {
@@ -573,7 +573,7 @@ InfoTab:CreateLabel("Ctrl - вниз")
 -- ========== УВЕДОМЛЕНИЕ ПРИ ЗАПУСКЕ ==========
 Rayfield:Notify({
     Title = "XENO CORE",
-    Content = "Скрипт загружен! by ELPRIMO228RB",
+    Content = "Скрипт загружен! Тема BLOOM активна",
     Duration = 5
 })
 
@@ -592,5 +592,5 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 print("[XENO CORE] ЗАГРУЗКА ЗАВЕРШЕНА")
-print("[XENO CORE] RAYFIELD ВЕРСИЯ")
+print("[XENO CORE] ТЕМА BLOOM АКТИВНА")
 print("[XENO CORE] by ELPRIMO228RB")
