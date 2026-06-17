@@ -3,6 +3,7 @@
 --[[
     XENO CORE - RAYFIELD ВЕРСИЯ С ТЕМОЙ BLOOM
     ВСЕ ФУНКЦИИ: TPWALK, FLY, INFINITE JUMP, NOCLIP, TPTOOL, ESP, FLING
+    BACKGROUND IMAGE РАБОТАЕТ
     by ELPRIMO228RB
 ]]
 
@@ -73,10 +74,10 @@ floatingButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- ========== СОЗДАНИЕ ОКНА RAYFIELD С ТЕМОЙ BLOOM И ФОНОМ ==========
+-- ========== СОЗДАНИЕ ОКНА RAYFIELD ==========
 local Window = Rayfield:CreateWindow({
     Name = "XENO CORE | by ELPRIMO228RB",
-    Icon = 11648237431,  -- <--- BACKGROUND IMAGE ID
+    Icon = 0,
     LoadingTitle = "XENO CORE",
     LoadingSubtitle = "by ELPRIMO228RB",
     Theme = "Bloom",
@@ -103,6 +104,75 @@ local Window = Rayfield:CreateWindow({
         Key = {"key"}
     }
 })
+
+-- ========== ДОБАВЛЕНИЕ BACKGROUND IMAGE (РАБОЧИЙ МЕТОД) ==========
+task.wait(0.5) -- ЖДЕМ ПОКА RAYFIELD СОЗДАСТ GUI
+
+local function AddBackgroundImage()
+    -- ИЩЕМ ГЛАВНЫЙ ФРЕЙМ RAYFIELD
+    local mainGui = game:GetService("CoreGui"):FindFirstChild("Rayfield")
+    if not mainGui then
+        -- ЕСЛИ НЕ НАШЛИ, ПЫТАЕМСЯ НАЙТИ ПО-ДРУГОМУ
+        for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Name:find("Rayfield") then
+                mainGui = gui
+                break
+            end
+        end
+    end
+    
+    if not mainGui then
+        warn("[XENO CORE] НЕ УДАЛОСЬ НАЙТИ GUI RAYFIELD ДЛЯ ФОНА")
+        return
+    end
+    
+    -- ИЩЕМ ОСНОВНОЙ ФРЕЙМ (MAIN FRAME)
+    local mainFrame = nil
+    for _, child in pairs(mainGui:GetDescendants()) do
+        if child:IsA("Frame") and child.Name == "Main" then
+            mainFrame = child
+            break
+        end
+    end
+    
+    if not mainFrame then
+        warn("[XENO CORE] НЕ УДАЛОСЬ НАЙТИ MAIN FRAME ДЛЯ ФОНА")
+        return
+    end
+    
+    -- СОЗДАЕМ IMAGELABEL ДЛЯ ФОНА
+    local backgroundImage = Instance.new("ImageLabel")
+    backgroundImage.Name = "BackgroundImage"
+    backgroundImage.Size = UDim2.new(1, 0, 1, 0) -- РАСТЯГИВАЕМ НА ВЕСЬ ФРЕЙМ
+    backgroundImage.Position = UDim2.new(0, 0, 0, 0)
+    backgroundImage.Image = "rbxassetid://11648237431"
+    backgroundImage.BackgroundTransparency = 1 -- ПРОЗРАЧНЫЙ ФОН У КАРТИНКИ
+    backgroundImage.ScaleType = Enum.ScaleType.Fit -- МАСШТАБИРУЕМ
+    backgroundImage.ZIndex = 1 -- НИЖНИЙ СЛОЙ
+    backgroundImage.Parent = mainFrame
+    
+    -- ПОДНИМАЕМ ВСЕ ОСТАЛЬНЫЕ ЭЛЕМЕНТЫ НАД ФОНОМ
+    for _, child in pairs(mainFrame:GetChildren()) do
+        if child ~= backgroundImage and child:IsA("GuiObject") then
+            child.ZIndex = child.ZIndex + 1
+        end
+    end
+    
+    -- ДЕЛАЕМ ФОН ФРЕЙМА ПРОЗРАЧНЫМ
+    mainFrame.BackgroundTransparency = 1
+    
+    print("[XENO CORE] BACKGROUND IMAGE УСТАНОВЛЕН!")
+end
+
+-- ЗАПУСКАЕМ ДОБАВЛЕНИЕ ФОНА
+spawn(function()
+    -- ПЫТАЕМСЯ ДОБАВИТЬ ФОН НЕСКОЛЬКО РАЗ (НА ВСЯКИЙ СЛУЧАЙ)
+    for i = 1, 5 do
+        task.wait(0.5)
+        local success, err = pcall(AddBackgroundImage)
+        if success then break end
+    end
+end)
 
 -- ========== ПЕРЕМЕННЫЕ ==========
 -- TPWALK
@@ -133,7 +203,7 @@ local tptoolCreated = false
 local espEnabled = false
 local espThread = nil
 
--- FLING (НОВЫЙ)
+-- FLING
 local flingEnabled = false
 local flingConnection = nil
 local flingPower = 10000
@@ -388,7 +458,7 @@ local function ToggleESP(Value)
     end
 end
 
--- ========== FLING (НОВЫЙ) ==========
+-- ========== FLING ==========
 local function ToggleFling(Value)
     flingEnabled = Value
     
@@ -406,14 +476,12 @@ local function ToggleFling(Value)
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
             
-            -- ПРОВЕРЯЕМ БЛИЗОСТЬ ДРУГИХ ИГРОКОВ
             for _, player in pairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character then
                     local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
                     if targetHrp then
                         local dist = (targetHrp.Position - hrp.Position).Magnitude
-                        if dist < 20 then -- ДИСТАНЦИЯ ФЛИНГА
-                            -- ПРИМЕНЯЕМ СИЛУ ФЛИНГА
+                        if dist < 20 then
                             local vel = hrp.Velocity
                             hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
                             task.wait()
@@ -529,7 +597,7 @@ PlayerTab:CreateToggle({
     end
 })
 
--- СЕКЦИЯ FLING (НОВАЯ)
+-- СЕКЦИЯ FLING
 local FlingSection = PlayerTab:CreateSection("Флинг (FLING)")
 
 PlayerTab:CreateToggle({
