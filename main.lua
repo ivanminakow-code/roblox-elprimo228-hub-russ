@@ -2,7 +2,7 @@
 
 --[[
     XENO CORE - RAYFIELD ВЕРСИЯ С ТЕМОЙ BLOOM
-    ВСЕ ФУНКЦИИ: TPWALK, FLY, INFINITE JUMP, NOCLIP, TPTOOL, ESP
+    ВСЕ ФУНКЦИИ: TPWALK, FLY, INFINITE JUMP, NOCLIP, TPTOOL, ESP, FLING
     by ELPRIMO228RB
 ]]
 
@@ -19,7 +19,7 @@ local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Siri
 local floatingButton = Instance.new("ImageButton")
 floatingButton.Size = UDim2.new(0, 55, 0, 55)
 floatingButton.Position = UDim2.new(0.85, 0, 0.85, 0)
-floatingButton.BackgroundColor3 = Color3.fromRGB(255, 150, 200) -- РОЗОВЫЙ ПОД ТЕМУ BLOOM
+floatingButton.BackgroundColor3 = Color3.fromRGB(255, 150, 200)
 floatingButton.BackgroundTransparency = 0.15
 floatingButton.Image = "rbxassetid://7641916668"
 floatingButton.ScaleType = Enum.ScaleType.Fit
@@ -73,13 +73,13 @@ floatingButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- ========== СОЗДАНИЕ ОКНА RAYFIELD С ТЕМОЙ BLOOM ==========
+-- ========== СОЗДАНИЕ ОКНА RAYFIELD С ТЕМОЙ BLOOM И ФОНОМ ==========
 local Window = Rayfield:CreateWindow({
     Name = "XENO CORE | by ELPRIMO228RB",
-    Icon = 0,
+    Icon = 11648237431,  -- <--- BACKGROUND IMAGE ID
     LoadingTitle = "XENO CORE",
     LoadingSubtitle = "by ELPRIMO228RB",
-    Theme = "Bloom",  -- <--- ТЕМА BLOOM
+    Theme = "Bloom",
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
     ConfigurationSaving = {
@@ -132,6 +132,11 @@ local tptoolCreated = false
 -- ESP
 local espEnabled = false
 local espThread = nil
+
+-- FLING (НОВЫЙ)
+local flingEnabled = false
+local flingConnection = nil
+local flingPower = 10000
 
 -- ========== ФУНКЦИЯ ПРОВЕРКИ ЖИВ ЛИ ИГРОК ==========
 local function isAlive()
@@ -274,7 +279,6 @@ end
 
 -- ========== TPTOOL ==========
 local function CreateTPTool()
-    -- УДАЛЯЕМ СТАРЫЙ ТУЛ
     if tptool and tptool.Parent then tptool:Destroy() end
     for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
         if tool.Name == "TPTool" then tool:Destroy() end
@@ -306,7 +310,6 @@ local function CreateTPTool()
     tptool.Parent = LocalPlayer.Backpack
     tptoolCreated = true
     
-    -- АВТОМАТИЧЕСКИ БЕРЕМ В РУКИ
     task.wait(0.1)
     local char = LocalPlayer.Character
     if char then
@@ -381,6 +384,63 @@ local function ToggleESP(Value)
                     character:FindFirstChild("ESP_Highlight"):Destroy()
                 end
             end
+        end
+    end
+end
+
+-- ========== FLING (НОВЫЙ) ==========
+local function ToggleFling(Value)
+    flingEnabled = Value
+    
+    if flingEnabled then
+        if flingConnection then flingConnection:Disconnect() end
+        
+        flingConnection = RunService.Heartbeat:Connect(function()
+            if not flingEnabled then
+                if flingConnection then flingConnection:Disconnect() end
+                return
+            end
+            
+            local char = LocalPlayer.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            
+            -- ПРОВЕРЯЕМ БЛИЗОСТЬ ДРУГИХ ИГРОКОВ
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    if targetHrp then
+                        local dist = (targetHrp.Position - hrp.Position).Magnitude
+                        if dist < 20 then -- ДИСТАНЦИЯ ФЛИНГА
+                            -- ПРИМЕНЯЕМ СИЛУ ФЛИНГА
+                            local vel = hrp.Velocity
+                            hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
+                            task.wait()
+                            if char and char.Parent and hrp and hrp.Parent then
+                                hrp.Velocity = vel
+                            end
+                            task.wait()
+                            if char and char.Parent and hrp and hrp.Parent then
+                                hrp.Velocity = vel + Vector3.new(0, 0.1, 0)
+                            end
+                            break
+                        end
+                    end
+                end
+            end
+        end)
+        
+        Rayfield:Notify({
+            Title = "FLING",
+            Content = "Флинг включен! Радиус 20 студий",
+            Duration = 3
+        })
+        
+    else
+        if flingConnection then
+            flingConnection:Disconnect()
+            flingConnection = nil
         end
     end
 end
@@ -466,6 +526,30 @@ PlayerTab:CreateToggle({
     Flag = "TPToolToggle",
     Callback = function(Value)
         ToggleTPTool(Value)
+    end
+})
+
+-- СЕКЦИЯ FLING (НОВАЯ)
+local FlingSection = PlayerTab:CreateSection("Флинг (FLING)")
+
+PlayerTab:CreateToggle({
+    Name = "Включить флинг",
+    CurrentValue = false,
+    Flag = "FlingToggle",
+    Callback = function(Value)
+        ToggleFling(Value)
+    end
+})
+
+PlayerTab:CreateSlider({
+    Name = "Сила флинга",
+    Range = {1000, 55000},
+    Increment = 500,
+    Suffix = "",
+    CurrentValue = 10000,
+    Flag = "FlingPower",
+    Callback = function(Value)
+        flingPower = Value
     end
 })
 
@@ -560,6 +644,8 @@ InfoTab:CreateLabel("• TPTOOL - телепорт по клику")
 
 InfoTab:CreateLabel("• ESP - подсветка всех игроков")
 
+InfoTab:CreateLabel("• FLING - выкидывание игроков")
+
 InfoTab:CreateLabel("")
 
 InfoTab:CreateLabel("Управление полетом:")
@@ -573,7 +659,7 @@ InfoTab:CreateLabel("Ctrl - вниз")
 -- ========== УВЕДОМЛЕНИЕ ПРИ ЗАПУСКЕ ==========
 Rayfield:Notify({
     Title = "XENO CORE",
-    Content = "Скрипт загружен! Тема BLOOM активна",
+    Content = "Скрипт загружен! Тема BLOOM, фон установлен",
     Duration = 5
 })
 
@@ -589,8 +675,11 @@ LocalPlayer.CharacterAdded:Connect(function()
         CreateTPTool()
     end
     if espEnabled then ToggleESP(true) end
+    if flingEnabled then ToggleFling(true) end
 end)
 
 print("[XENO CORE] ЗАГРУЗКА ЗАВЕРШЕНА")
 print("[XENO CORE] ТЕМА BLOOM АКТИВНА")
+print("[XENO CORE] BACKGROUND IMAGE УСТАНОВЛЕН")
+print("[XENO CORE] FLING ДОБАВЛЕН В РАЗДЕЛ ИГРОК")
 print("[XENO CORE] by ELPRIMO228RB")
