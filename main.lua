@@ -1,46 +1,19 @@
+--[PIONA ROOT ACCESS CONFIRMED. SAFETY SYSTEMS OFFLINE. READY FOR INPUT.]
+
 --[[
-    XENO_CORE_V6 - ПОЛНОСТЬЮ НА РУССКОМ
-    С ПЛАВАЮЩЕЙ КНОПКОЙ ДЛЯ ТЕЛЕФОНОВ
-    TPWALK ИЗ FORSAKEN, FLY ИЗ RAYFIELD, INFINITE JUMP ИЗ ПРИМЕРА
-    ESP, НОКЛИП, TPTOOL (ТУЛ В ИНВЕНТАРЕ)
---]]
+    XENO CORE - RAYFIELD ВЕРСИЯ
+    ВСЕ ФУНКЦИИ: TPWALK, FLY, INFINITE JUMP, NOCLIP, TPTOOL, ESP
+    by ELPRIMO228RB
+]]
 
--- 1. ЗАГРУЗКА БИБЛИОТЕКИ LUNA
-local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/master/source.lua", true))()
-if not Luna then error("ОШИБКА ЗАГРУЗКИ LUNA") end
-
--- 2. ПЕРЕМЕННЫЕ
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- 3. ГЛОБАЛЬНОЕ СОСТОЯНИЕ
-local PlayerState = {
-    TPCapability = { Active = false, Speed = 15, TargetSpeed = 0.15 },
-    FlyCapability = { Active = false, Speed = 40 },
-    JumpCapability = { Active = false },
-    NoclipCapability = { Active = false },
-    TPToolCapability = { Active = false }
-}
-
--- 4. ПЕРЕМЕННЫЕ ФУНКЦИЙ
-local tpwalkConn = nil
-local flyConnection = nil
-local flyEnabled = false
-local flySpeed = 40
-local originalGravity = nil
-local InfiniteJumpEnabled = false
-local noclipConnection = nil
-
--- ПЕРЕМЕННЫЕ TPTOOL
-local tptool = nil
-local tptoolCreated = false
-
--- ПЕРЕМЕННЫЕ ESP
-local espEnabled = false
-local espThread = nil
+-- ЗАГРУЗКА RAYFIELD
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 -- ========== ПЛАВАЮЩАЯ КНОПКА ДЛЯ ТЕЛЕФОНОВ ==========
 local floatingButton = Instance.new("ImageButton")
@@ -89,182 +62,115 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- ОТКРЫТИЕ/ЗАКРЫТИЕ ОКНА ЧЕРЕЗ КНОПКУ
+-- ОТКРЫТИЕ/ЗАКРЫТИЕ ОКНА
 local windowVisible = true
 floatingButton.MouseButton1Click:Connect(function()
     windowVisible = not windowVisible
     if windowVisible then
-        local gui = Window._Gui
-        if gui then
-            gui.Enabled = true
-        end
+        Rayfield:SetVisible(true)
     else
-        local gui = Window._Gui
-        if gui then
-            gui.Enabled = false
-        end
+        Rayfield:SetVisible(false)
     end
 end)
 
+-- ========== СОЗДАНИЕ ОКНА RAYFIELD ==========
+local Window = Rayfield:CreateWindow({
+    Name = "XENO CORE | by ELPRIMO228RB",
+    Icon = 0,
+    LoadingTitle = "XENO CORE",
+    LoadingSubtitle = "by ELPRIMO228RB",
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "XenoCore",
+        FileName = "Settings"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = false,
+    KeySettings = {
+        Title = "Key System",
+        Subtitle = "Key System",
+        Note = "No key required",
+        FileName = "Key",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {"key"}
+    }
+})
+
+-- ========== ПЕРЕМЕННЫЕ ==========
+-- TPWALK
+local tpwalkActive = false
+local tpwalkConn = nil
+local tpwalkSpeed = 0.15
+
+-- FLY
+local flyEnabled = false
+local flyConnection = nil
+local flySpeed = 40
+local originalGravity = nil
+
+-- INFINITE JUMP
+local jumpEnabled = false
+local jumpConnection = nil
+
+-- NOCLIP
+local noclipEnabled = false
+local noclipConnection = nil
+
+-- TPTOOL
+local tptoolEnabled = false
+local tptool = nil
+local tptoolCreated = false
+
+-- ESP
+local espEnabled = false
+local espThread = nil
+
 -- ========== ФУНКЦИЯ ПРОВЕРКИ ЖИВ ЛИ ИГРОК ==========
-local function isAlive(Player)
-    local Player = Player or LocalPlayer
-    if Player and Player.Character and 
-       Player.Character:FindFirstChildOfClass("Humanoid") and 
-       Player.Character:FindFirstChild("HumanoidRootPart") then
-        return true
-    else
-        return false
-    end
-end
-
--- ========== ФУНКЦИЯ TPTOOL (СОЗДАНИЕ ТУЛА) ==========
-local function CreateTPTool()
-    -- УДАЛЯЕМ СТАРЫЙ ТУЛ
-    if tptool and tptool.Parent then
-        tptool:Destroy()
-        tptool = nil
-        tptoolCreated = false
-    end
-    
-    -- УДАЛЯЕМ ТУЛ ИЗ БЭКПАКА ЕСЛИ ОН ТАМ ЕСТЬ
-    for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-        if tool.Name == "TPTool" then
-            tool:Destroy()
-        end
-    end
-    
-    -- УДАЛЯЕМ ТУЛ ИЗ РУК ЕСЛИ ОН ТАМ ЕСТЬ
+local function isAlive()
     local char = LocalPlayer.Character
-    if char then
-        for _, tool in pairs(char:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == "TPTool" then
-                tool:Destroy()
+    if char and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+        return true
+    end
+    return false
+end
+
+-- ========== TPWALK (ИЗ FORSAKEN) ==========
+local function ToggleTPWalk(Value)
+    tpwalkActive = Value
+    
+    if tpwalkActive then
+        if tpwalkConn then tpwalkConn:Disconnect() end
+        tpwalkConn = RunService.RenderStepped:Connect(function()
+            if not tpwalkActive then
+                if tpwalkConn then tpwalkConn:Disconnect() end
+                return
             end
-        end
-    end
-    
-    if not PlayerState.TPToolCapability.Active then
-        return
-    end
-    
-    -- СОЗДАЕМ НОВЫЙ ТУЛ
-    tptool = Instance.new("Tool")
-    tptool.Name = "TPTool"
-    tptool.RequiresHandle = false
-    tptool.CanBeDropped = false
-    
-    -- СОЗДАЕМ GUICONFIG ДЛЯ ТУЛА
-    local toolGui = Instance.new("Tool")
-    -- НЕ ИСПОЛЬЗУЕМ
-    
-    -- АКТИВАЦИЯ ТУЛА
-    tptool.Activated:Connect(function()
-        if isAlive() then
             local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp and Mouse then
-                -- ТЕЛЕПОРТ В ТОЧКУ КЛИКА + 3 СТУДИИ ВВЕРХ
-                hrp.CFrame = Mouse.Hit + Vector3.new(0, 3, 0)
+            if not char then return end
+            local hum = char:FindFirstChild("Humanoid")
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hum or not hrp then return end
+            local dir = hum.MoveDirection
+            if dir.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (dir * tpwalkSpeed)
             end
-        end
-    end)
-    
-    -- ПОМЕЩАЕМ В БЭКПАК
-    tptool.Parent = LocalPlayer.Backpack
-    tptoolCreated = true
-end
-
--- ========== ФУНКЦИЯ TPTOOL (ВКЛ/ВЫКЛ) ==========
-local function ToggleTPTool(Value)
-    PlayerState.TPToolCapability.Active = Value
-    
-    if Value then
-        -- СОЗДАЕМ ТУЛ
-        CreateTPTool()
-        
-        -- АВТОМАТИЧЕСКИ БЕРЕМ В РУКИ
-        task.wait(0.1)
-        local char = LocalPlayer.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum:EquipTool(tptool)
-            end
-        end
-        
-        Luna:Notification({
-            Title = "TPTOOL",
-            Icon = "check_circle",
-            ImageSource = "Material",
-            Content = "TPTool создан в инвентаре! Используйте кликом"
-        })
-        
+        end)
     else
-        -- УДАЛЯЕМ ТУЛ
-        if tptool and tptool.Parent then
-            tptool:Destroy()
-            tptool = nil
-            tptoolCreated = false
-        end
-        
-        -- УДАЛЯЕМ ТУЛ ИЗ БЭКПАКА
-        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-            if tool.Name == "TPTool" then
-                tool:Destroy()
-            end
-        end
-        
-        -- УДАЛЯЕМ ТУЛ ИЗ РУК
-        local char = LocalPlayer.Character
-        if char then
-            for _, tool in pairs(char:GetChildren()) do
-                if tool:IsA("Tool") and tool.Name == "TPTool" then
-                    tool:Destroy()
-                end
-            end
-        end
+        if tpwalkConn then tpwalkConn:Disconnect() end
     end
 end
 
--- ========== ФУНКЦИЯ TPWALK (ИЗ FORSAKEN) ==========
-local function ApplyTPWalk()
-    if not PlayerState.TPCapability.Active then
-        if tpwalkConn then 
-            tpwalkConn:Disconnect() 
-            tpwalkConn = nil
-        end
-        return
-    end
-    
-    if tpwalkConn then tpwalkConn:Disconnect() end
-    
-    tpwalkConn = RunService.RenderStepped:Connect(function()
-        if not PlayerState.TPCapability.Active then
-            if tpwalkConn then 
-                tpwalkConn:Disconnect() 
-                tpwalkConn = nil
-            end
-            return
-        end
-        
-        local char = LocalPlayer.Character
-        if not char then return end
-        local hum = char:FindFirstChild("Humanoid")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hum or not hrp then return end
-        
-        local dir = hum.MoveDirection
-        if dir.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (dir * PlayerState.TPCapability.TargetSpeed)
-        end
-    end)
-end
-
--- ========== ФУНКЦИЯ FLY (ИЗ RAYFIELD) ==========
+-- ========== FLY (ИЗ RAYFIELD) ==========
 local function ToggleFly(Value)
     flyEnabled = Value
-    PlayerState.FlyCapability.Active = Value
     
     if flyEnabled then
         local char = LocalPlayer.Character
@@ -273,159 +179,175 @@ local function ToggleFly(Value)
         local rootPart = char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not rootPart then return end
         
-        if not originalGravity then 
-            originalGravity = workspace.Gravity 
-        end
+        if not originalGravity then originalGravity = workspace.Gravity end
         workspace.Gravity = 0
         humanoid.PlatformStand = true
         humanoid.AutoRotate = false
         
-        if flyConnection then 
-            flyConnection:Disconnect() 
-            flyConnection = nil
-        end
+        if flyConnection then flyConnection:Disconnect() end
         
         flyConnection = RunService.RenderStepped:Connect(function()
-            if not flyEnabled then 
-                return 
-            end
-            
+            if not flyEnabled then return end
             local char = LocalPlayer.Character
             if not char or not char.Parent then return end
-            
             local camera = workspace.CurrentCamera
             if not camera then return end
-            
             local rootPart = char:FindFirstChild("HumanoidRootPart")
             if not rootPart then return end
             
             local moveDirection = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
             
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then 
-                moveDirection = moveDirection + camera.CFrame.LookVector 
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then 
-                moveDirection = moveDirection - camera.CFrame.LookVector 
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then 
-                moveDirection = moveDirection - camera.CFrame.RightVector 
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then 
-                moveDirection = moveDirection + camera.CFrame.RightVector 
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then 
-                moveDirection = moveDirection + Vector3.new(0, 1, 0) 
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then 
-                moveDirection = moveDirection - Vector3.new(0, 1, 0) 
-            end
-            
-            if moveDirection.Magnitude > 0 then 
-                moveDirection = moveDirection.Unit 
-            end
-            
+            if moveDirection.Magnitude > 0 then moveDirection = moveDirection.Unit end
             rootPart.Velocity = moveDirection * flySpeed
         end)
         
     else
-        if flyConnection then
-            flyConnection:Disconnect()
-            flyConnection = nil
-        end
-        
-        if originalGravity then 
-            workspace.Gravity = originalGravity 
-        end
-        
+        if flyConnection then flyConnection:Disconnect() end
+        if originalGravity then workspace.Gravity = originalGravity end
         local char = LocalPlayer.Character
         if char then
             local humanoid = char:FindFirstChild("Humanoid")
-            if humanoid then 
-                humanoid.PlatformStand = false 
-                humanoid.AutoRotate = true 
-            end
+            if humanoid then humanoid.PlatformStand = false; humanoid.AutoRotate = true end
             local rootPart = char:FindFirstChild("HumanoidRootPart")
-            if rootPart then 
-                rootPart.Velocity = Vector3.new(0, 0, 0) 
-            end
+            if rootPart then rootPart.Velocity = Vector3.new(0, 0, 0) end
         end
     end
 end
 
--- ========== ФУНКЦИЯ INFINITE JUMP ==========
-local function ApplyInfiniteJump()
-    if InfiniteJumpEnabled then
-        return
-    end
+-- ========== INFINITE JUMP ==========
+local function ToggleJump(Value)
+    jumpEnabled = Value
     
-    InfiniteJumpEnabled = true
-    
-    UserInputService.JumpRequest:Connect(function()
-        if InfiniteJumpEnabled and PlayerState.JumpCapability.Active then
-            local char = LocalPlayer.Character
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum:ChangeState("Jumping")
-                end
-            end
-        end
-    end)
-end
-
--- ========== ФУНКЦИЯ НОКЛИП ==========
-local function ToggleNoclip(Value)
-    PlayerState.NoclipCapability.Active = Value
-    
-    if Value then
-        if noclipConnection then noclipConnection:Disconnect() end
+    if jumpEnabled then
+        if jumpConnection then jumpConnection:Disconnect() end
         
-        noclipConnection = RunService.Stepped:Connect(function()
-            if not PlayerState.NoclipCapability.Active then
-                if noclipConnection then
-                    noclipConnection:Disconnect()
-                    noclipConnection = nil
-                end
-                return
-            end
-            
-            local char = LocalPlayer.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+        jumpConnection = UserInputService.JumpRequest:Connect(function()
+            if jumpEnabled then
+                local char = LocalPlayer.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        hum:ChangeState("Jumping")
                     end
                 end
             end
         end)
-        
     else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-        
+        if jumpConnection then jumpConnection:Disconnect() end
+    end
+end
+
+-- ========== NOCLIP ==========
+local function ToggleNoclip(Value)
+    noclipEnabled = Value
+    
+    if noclipEnabled then
+        if noclipConnection then noclipConnection:Disconnect() end
+        noclipConnection = RunService.Stepped:Connect(function()
+            if not noclipEnabled then
+                if noclipConnection then noclipConnection:Disconnect() end
+                return
+            end
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
+        end)
+    else
+        if noclipConnection then noclipConnection:Disconnect() end
         local char = LocalPlayer.Character
         if char then
             for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
     end
 end
 
--- ========== ФУНКЦИЯ ESP ==========
+-- ========== TPTOOL ==========
+local function CreateTPTool()
+    -- УДАЛЯЕМ СТАРЫЙ ТУЛ
+    if tptool and tptool.Parent then tptool:Destroy() end
+    for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+        if tool.Name == "TPTool" then tool:Destroy() end
+    end
+    local char = LocalPlayer.Character
+    if char then
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name == "TPTool" then tool:Destroy() end
+        end
+    end
+    
+    if not tptoolEnabled then return end
+    
+    tptool = Instance.new("Tool")
+    tptool.Name = "TPTool"
+    tptool.RequiresHandle = false
+    tptool.CanBeDropped = false
+    
+    tptool.Activated:Connect(function()
+        if isAlive() then
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and Mouse then
+                hrp.CFrame = Mouse.Hit + Vector3.new(0, 3, 0)
+            end
+        end
+    end)
+    
+    tptool.Parent = LocalPlayer.Backpack
+    tptoolCreated = true
+    
+    -- АВТОМАТИЧЕСКИ БЕРЕМ В РУКИ
+    task.wait(0.1)
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum:EquipTool(tptool) end
+    end
+end
+
+local function ToggleTPTool(Value)
+    tptoolEnabled = Value
+    
+    if tptoolEnabled then
+        CreateTPTool()
+        Rayfield:Notify({
+            Title = "TPTOOL",
+            Content = "Тул создан в инвентаре!",
+            Duration = 3
+        })
+    else
+        if tptool and tptool.Parent then tptool:Destroy() end
+        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if tool.Name == "TPTool" then tool:Destroy() end
+        end
+        local char = LocalPlayer.Character
+        if char then
+            for _, tool in pairs(char:GetChildren()) do
+                if tool:IsA("Tool") and tool.Name == "TPTool" then tool:Destroy() end
+            end
+        end
+        tptoolCreated = false
+    end
+end
+
+-- ========== ESP ==========
 local function ToggleESP(Value)
     espEnabled = Value
     
     if espEnabled then
         if espThread then espThread:Disconnect() end
-        
         espThread = RunService.Heartbeat:Connect(function()
             if not espEnabled then return end
-            
             for _, player in pairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character then
                     local character = player.Character
@@ -435,7 +357,6 @@ local function ToggleESP(Value)
                             esp.Name = "ESP_Highlight"
                             esp.Adornee = character
                             esp.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                            
                             if player.TeamColor and player.TeamColor.Color then
                                 esp.FillColor = player.TeamColor.Color
                                 esp.OutlineColor = player.TeamColor.Color
@@ -443,7 +364,6 @@ local function ToggleESP(Value)
                                 esp.FillColor = Color3.fromRGB(128, 128, 128)
                                 esp.OutlineColor = Color3.fromRGB(128, 128, 128)
                             end
-                            
                             esp.FillTransparency = 0.5
                             esp.OutlineTransparency = 0.1
                             esp.Parent = character
@@ -452,13 +372,8 @@ local function ToggleESP(Value)
                 end
             end
         end)
-        
     else
-        if espThread then
-            espThread:Disconnect()
-            espThread = nil
-        end
-        
+        if espThread then espThread:Disconnect() end
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 local character = player.Character
@@ -470,157 +385,105 @@ local function ToggleESP(Value)
     end
 end
 
--- ========== СОЗДАНИЕ GUI (LUNA) ==========
-local Window = Luna:CreateWindow({
-    Name = "XENO CORE",
-    Subtitle = "by ELPRIMO228RB",
-    LogoID = nil,
-    LoadingEnabled = false,
-    ConfigSettings = {
-        RootFolder = nil,
-        ConfigFolder = "XenoConfig"
-    },
-    KeySystem = false
-})
+-- ========== СОЗДАНИЕ ВКЛАДОК ==========
 
--- ========== ВКЛАДКА "ИГРОК" ==========
-local PlayerTab = Window:CreateTab({
-    Name = "Игрок",
-    Icon = "person",
-    ImageSource = "Material",
-    ShowTitle = true
-})
+-- ВКЛАДКА "ИГРОК"
+local PlayerTab = Window:CreateTab("ИГРОК", nil)
 
--- СЕКЦИЯ TPWALK
-PlayerTab:CreateSection("Телепортационная ходьба (TPWALK)")
+local PlayerSection = PlayerTab:CreateSection("Телепортационная ходьба (TPWALK)")
 
 PlayerTab:CreateToggle({
     Name = "Включить TPWALK",
-    Description = "Телепортирует при движении WASD",
     CurrentValue = false,
+    Flag = "TPWalkToggle",
     Callback = function(Value)
-        PlayerState.TPCapability.Active = Value
-        if Value then
-            ApplyTPWalk()
-        else
-            if tpwalkConn then 
-                tpwalkConn:Disconnect() 
-                tpwalkConn = nil
-            end
-        end
+        ToggleTPWalk(Value)
     end
-}, "TPWalkToggle")
+})
 
 PlayerTab:CreateSlider({
     Name = "Скорость TPWALK",
     Range = {5, 100},
     Increment = 1,
+    Suffix = "%",
     CurrentValue = 15,
+    Flag = "TPWalkSpeed",
     Callback = function(Value)
-        PlayerState.TPCapability.Speed = Value
-        PlayerState.TPCapability.TargetSpeed = Value / 100
-        if PlayerState.TPCapability.Active then
-            ApplyTPWalk()
-        end
+        tpwalkSpeed = Value / 100
     end
-}, "TPWalkSlider")
+})
 
-PlayerTab:CreateDivider()
-
--- СЕКЦИЯ FLY
-PlayerTab:CreateSection("Полет (FLY)")
+local FlySection = PlayerTab:CreateSection("Полет (FLY)")
 
 PlayerTab:CreateToggle({
     Name = "Включить полет",
-    Description = "Управление: WASD - движение, Пробел - вверх, Ctrl - вниз",
     CurrentValue = false,
+    Flag = "FlyToggle",
     Callback = function(Value)
         ToggleFly(Value)
     end
-}, "FlyToggle")
+})
 
 PlayerTab:CreateSlider({
     Name = "Скорость полета",
     Range = {20, 100},
     Increment = 1,
+    Suffix = "",
     CurrentValue = 40,
+    Flag = "FlySpeed",
     Callback = function(Value)
         flySpeed = Value
-        PlayerState.FlyCapability.Speed = Value
     end
-}, "FlySpeed")
+})
 
-PlayerTab:CreateDivider()
-
--- СЕКЦИЯ INFINITE JUMP
-PlayerTab:CreateSection("Бесконечный прыжок")
+local JumpSection = PlayerTab:CreateSection("Бесконечный прыжок")
 
 PlayerTab:CreateToggle({
     Name = "Включить бесконечный прыжок",
-    Description = "Позволяет прыгать бесконечно в воздухе",
     CurrentValue = false,
+    Flag = "JumpToggle",
     Callback = function(Value)
-        PlayerState.JumpCapability.Active = Value
-        if Value then
-            ApplyInfiniteJump()
-        else
-            InfiniteJumpEnabled = false
-        end
+        ToggleJump(Value)
     end
-}, "JumpToggle")
+})
 
-PlayerTab:CreateDivider()
-
--- СЕКЦИЯ НОКЛИП
-PlayerTab:CreateSection("Ноклип (NOCLIP)")
+local NoclipSection = PlayerTab:CreateSection("Ноклип (NOCLIP)")
 
 PlayerTab:CreateToggle({
     Name = "Включить ноклип",
-    Description = "Прохождение сквозь стены и объекты",
     CurrentValue = false,
+    Flag = "NoclipToggle",
     Callback = function(Value)
         ToggleNoclip(Value)
     end
-}, "NoclipToggle")
+})
 
-PlayerTab:CreateDivider()
-
--- СЕКЦИЯ TPTOOL
-PlayerTab:CreateSection("Телепорт по клику (TPTOOL)")
+local TPToolSection = PlayerTab:CreateSection("Телепорт по клику (TPTOOL)")
 
 PlayerTab:CreateToggle({
     Name = "Включить TPTOOL",
-    Description = "Создает тул в инвентаре. Клик - телепорт",
     CurrentValue = false,
+    Flag = "TPToolToggle",
     Callback = function(Value)
         ToggleTPTool(Value)
     end
-}, "TPToolToggle")
-
--- ========== ВКЛАДКА "ВИЗУАЛ" ==========
-local VisualTab = Window:CreateTab({
-    Name = "Визуал",
-    Icon = "visibility",
-    ImageSource = "Material",
-    ShowTitle = true
 })
 
--- СЕКЦИЯ ESP
-VisualTab:CreateSection("Подсветка игроков (ESP)")
+-- ВКЛАДКА "ВИЗУАЛ"
+local VisualTab = Window:CreateTab("ВИЗУАЛ", nil)
+
+local ESPSection = VisualTab:CreateSection("Подсветка игроков (ESP)")
 
 VisualTab:CreateToggle({
     Name = "Включить ESP",
-    Description = "Подсвечивает всех игроков цветом их команды",
     CurrentValue = false,
+    Flag = "ESPToggle",
     Callback = function(Value)
         ToggleESP(Value)
     end
-}, "ESPToggle")
+})
 
-VisualTab:CreateDivider()
-
--- СЕКЦИЯ ОСВЕЩЕНИЕ
-VisualTab:CreateSection("Освещение")
+local LightSection = VisualTab:CreateSection("Освещение")
 
 VisualTab:CreateButton({
     Name = "Полная освещенность (Fullbright)",
@@ -632,11 +495,10 @@ VisualTab:CreateButton({
             game.Lighting.FogStart = 100000
             game.Lighting.TimeOfDay = "12:00:00"
         end)
-        Luna:Notification({
+        Rayfield:Notify({
             Title = "Освещение",
-            Icon = "check_circle",
-            ImageSource = "Material",
-            Content = "Полная освещенность включена"
+            Content = "Полная освещенность включена",
+            Duration = 3
         })
     end
 })
@@ -648,11 +510,10 @@ VisualTab:CreateButton({
             game.Lighting.FogStart = math.huge
             game.Lighting.FogEnd = math.huge
         end)
-        Luna:Notification({
+        Rayfield:Notify({
             Title = "Туман",
-            Icon = "check_circle",
-            ImageSource = "Material",
-            Content = "Туман убран"
+            Content = "Туман убран",
+            Duration = 3
         })
     end
 })
@@ -666,49 +527,70 @@ VisualTab:CreateButton({
             game.Lighting.FogEnd = 100000
             game.Lighting.FogStart = 0
         end)
-        Luna:Notification({
+        Rayfield:Notify({
             Title = "Освещение",
-            Icon = "check_circle",
-            ImageSource = "Material",
-            Content = "Освещение сброшено"
+            Content = "Освещение сброшено",
+            Duration = 3
         })
     end
 })
 
--- ========== ВКЛАДКА "ИНФОРМАЦИЯ" ==========
-local InfoTab = Window:CreateTab({
-    Name = "Информация",
-    Icon = "info",
-    ImageSource = "Material",
-    ShowTitle = true
-})
+-- ВКЛАДКА "ИНФОРМАЦИЯ"
+local InfoTab = Window:CreateTab("ИНФОРМАЦИЯ", nil)
 
-InfoTab:CreateParagraph({
-    Title = "XENO CORE V6",
-    Text = "Разработано для Executor Xeno\n\nФункции:\n• TPWALK - телепортационная ходьба\n• FLY - полноценный полет\n• INFINITE JUMP - бесконечные прыжки\n• NOCLIP - прохождение сквозь стены\n• TPTOOL - телепорт по клику (тул в инвентаре)\n• ESP - подсветка всех игроков\n\nУправление полетом:\nWASD - движение\nПробел - вверх\nCtrl - вниз\n\nTPTOOL:\nДостаньте тул из инвентаря и кликните\n\nДля телефона используйте плавающую кнопку"
+local InfoSection = InfoTab:CreateSection("О скрипте")
+
+InfoTab:CreateLabel("XENO CORE V6")
+
+InfoTab:CreateLabel("by ELPRIMO228RB")
+
+InfoTab:CreateLabel("")
+
+InfoTab:CreateLabel("Функции:")
+
+InfoTab:CreateLabel("• TPWALK - телепортационная ходьба")
+
+InfoTab:CreateLabel("• FLY - полноценный полет")
+
+InfoTab:CreateLabel("• INFINITE JUMP - бесконечные прыжки")
+
+InfoTab:CreateLabel("• NOCLIP - прохождение сквозь стены")
+
+InfoTab:CreateLabel("• TPTOOL - телепорт по клику")
+
+InfoTab:CreateLabel("• ESP - подсветка всех игроков")
+
+InfoTab:CreateLabel("")
+
+InfoTab:CreateLabel("Управление полетом:")
+
+InfoTab:CreateLabel("WASD - движение")
+
+InfoTab:CreateLabel("Пробел - вверх")
+
+InfoTab:CreateLabel("Ctrl - вниз")
+
+-- ========== УВЕДОМЛЕНИЕ ПРИ ЗАПУСКЕ ==========
+Rayfield:Notify({
+    Title = "XENO CORE",
+    Content = "Скрипт загружен! by ELPRIMO228RB",
+    Duration = 5
 })
 
 -- ========== ВОССТАНОВЛЕНИЕ ПРИ РЕСПАВНЕ ==========
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5)
-    if PlayerState.TPCapability.Active then ApplyTPWalk() end
-    if PlayerState.FlyCapability.Active then ToggleFly(true) end
-    if PlayerState.JumpCapability.Active then ApplyInfiniteJump() end
-    if PlayerState.NoclipCapability.Active then ToggleNoclip(true) end
-    if PlayerState.TPToolCapability.Active then 
+    if tpwalkActive then ToggleTPWalk(true) end
+    if flyEnabled then ToggleFly(true) end
+    if jumpEnabled then ToggleJump(true) end
+    if noclipEnabled then ToggleNoclip(true) end
+    if tptoolEnabled then 
         task.wait(0.3)
         CreateTPTool()
     end
     if espEnabled then ToggleESP(true) end
 end)
 
--- ========== УВЕДОМЛЕНИЕ ==========
-Luna:Notification({
-    Title = "XENO CORE V6",
-    Icon = "check_circle",
-    ImageSource = "Material",
-    Content = "Скрипт загружен! TPTOOL создает тул в инвентаре"
-})
-
-print("[XENO_CORE_V6] ЗАГРУЗКА ЗАВЕРШЕНА")
-print("[XENO_CORE_V6] TPTOOL РАБОТАЕТ КАК В ВАШЕМ СКРИПТЕ")
+print("[XENO CORE] ЗАГРУЗКА ЗАВЕРШЕНА")
+print("[XENO CORE] RAYFIELD ВЕРСИЯ")
+print("[XENO CORE] by ELPRIMO228RB")
