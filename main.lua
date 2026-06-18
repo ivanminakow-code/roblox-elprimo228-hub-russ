@@ -130,11 +130,19 @@ local tpwalkActive = false
 local tpwalkConn = nil
 local tpwalkSpeed = 0.15
 
--- FLY
+-- FLY (С ПОДДЕРЖКОЙ ТЕЛЕФОНА)
 local flyEnabled = false
 local flyConnection = nil
 local flySpeed = 40
 local originalGravity = nil
+
+-- ПЕРЕМЕННЫЕ ДЛЯ УПРАВЛЕНИЯ FLY НА ТЕЛЕФОНЕ
+local flyMoveForward = false
+local flyMoveBackward = false
+local flyMoveLeft = false
+local flyMoveRight = false
+local flyMoveUp = false
+local flyMoveDown = false
 
 -- INFINITE JUMP
 local jumpEnabled = false
@@ -159,7 +167,6 @@ local flingPower = 10000
 -- ВЫКЛЮЧИТЬ УРОН
 local damageDisabled = false
 local damageConnection = nil
-local humanoidClone = nil
 
 -- ========== ФУНКЦИЯ ПРОВЕРКИ ЖИВ ЛИ ИГРОК ==========
 local function isAlive()
@@ -197,27 +204,19 @@ local function ToggleDamage(Value)
     end
     
     if Value then
-        -- ВКЛЮЧАЕМ ЗАЩИТУ ОТ УРОНА
         if damageConnection then damageConnection:Disconnect() end
         
-        -- СОХРАНЯЕМ ТЕКУЩИЙ HUMANoid
-        humanoidClone = humanoid
-        
-        -- ОТКЛЮЧАЕМ ВСЕ СОБЫТИЯ ПОЛУЧЕНИЯ УРОНА
         damageConnection = humanoid:GetPropertyChangedSignal("Health"):Connect(function()
             if damageDisabled and humanoid and humanoid.Parent then
-                -- ВОССТАНАВЛИВАЕМ ЗДОРОВЬЕ ЕСЛИ ОНО УПАЛО
                 if humanoid.Health < 100 then
                     humanoid.Health = 100
                 end
             end
         end)
         
-        -- ТАКЖЕ БЛОКИРУЕМ УРОН ЧЕРЕЗ ПЕРЕХВАТ ПЕРЕМЕННОЙ
         pcall(function()
             humanoid.MaxHealth = 100
             humanoid.Health = 100
-            -- ПЫТАЕМСЯ ОТКЛЮЧИТЬ УРОН ЧЕРЕЗ BREAK JOINTS
             humanoid.BreakJointsOnDeath = false
         end)
         
@@ -229,18 +228,15 @@ local function ToggleDamage(Value)
         })
         
     else
-        -- ВЫКЛЮЧАЕМ ЗАЩИТУ
         if damageConnection then
             damageConnection:Disconnect()
             damageConnection = nil
         end
         
-        -- ВОССТАНАВЛИВАЕМ СТАНДАРТНЫЕ ПАРАМЕТРЫ
         pcall(function()
             if humanoid then
                 humanoid.BreakJointsOnDeath = true
                 humanoid.MaxHealth = 100
-                -- НЕ СБРАСЫВАЕМ ЗДОРОВЬЕ, ЧТОБЫ НЕ УБИТЬ ИГРОКА
             end
         end)
         
@@ -279,7 +275,7 @@ local function ToggleTPWalk(Value)
     end
 end
 
--- ========== FLY ==========
+-- ========== FLY (С ПОДДЕРЖКОЙ ТЕЛЕФОНА) ==========
 local function ToggleFly(Value)
     flyEnabled = Value
     
@@ -297,26 +293,61 @@ local function ToggleFly(Value)
         
         if flyConnection then flyConnection:Disconnect() end
         
+        -- СБРАСЫВАЕМ УПРАВЛЕНИЕ
+        flyMoveForward = false
+        flyMoveBackward = false
+        flyMoveLeft = false
+        flyMoveRight = false
+        flyMoveUp = false
+        flyMoveDown = false
+        
         flyConnection = RunService.RenderStepped:Connect(function()
             if not flyEnabled then return end
+            
             local char = LocalPlayer.Character
             if not char or not char.Parent then return end
+            
             local camera = workspace.CurrentCamera
             if not camera then return end
+            
             local rootPart = char:FindFirstChild("HumanoidRootPart")
             if not rootPart then return end
             
             local moveDirection = Vector3.new()
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
+            
+            -- УПРАВЛЕНИЕ С КЛАВИАТУРЫ (ДЛЯ ПК)
+            if not isMobile then
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
+            end
+            
+            -- УПРАВЛЕНИЕ С ТЕЛЕФОНА (ЧЕРЕЗ ПЕРЕМЕННЫЕ)
+            if isMobile then
+                if flyMoveForward then moveDirection = moveDirection + camera.CFrame.LookVector end
+                if flyMoveBackward then moveDirection = moveDirection - camera.CFrame.LookVector end
+                if flyMoveLeft then moveDirection = moveDirection - camera.CFrame.RightVector end
+                if flyMoveRight then moveDirection = moveDirection + camera.CFrame.RightVector end
+                if flyMoveUp then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
+                if flyMoveDown then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
+            end
             
             if moveDirection.Magnitude > 0 then moveDirection = moveDirection.Unit end
             rootPart.Velocity = moveDirection * flySpeed
         end)
+        
+        -- ЕСЛИ ТЕЛЕФОН - ПОКАЗЫВАЕМ ИНСТРУКЦИЮ
+        if isMobile then
+            Luna:Notification({
+                Title = "📱 FLY ДЛЯ ТЕЛЕФОНА",
+                Icon = "phone_android",
+                ImageSource = "Material",
+                Content = "Используйте джойстик для движения. Кнопки вверх/вниз в разделе FLY"
+            })
+        end
         
     else
         if flyConnection then flyConnection:Disconnect() end
@@ -559,6 +590,16 @@ local function ToggleFling(Value)
     end
 end
 
+-- ========== ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ FLY НА ТЕЛЕФОНЕ ==========
+-- ЭТИ ФУНКЦИИ БУДУТ ВЫЗЫВАТЬСЯ ИЗ КНОПОК В GUI
+local function SetFlyUp(Value)
+    flyMoveUp = Value
+end
+
+local function SetFlyDown(Value)
+    flyMoveDown = Value
+end
+
 -- ========== СОЗДАНИЕ ВКЛАДОК ==========
 
 -- ВКЛАДКА "ИГРОК"
@@ -598,7 +639,7 @@ PlayerTab:CreateSection("Полет (FLY)")
 
 PlayerTab:CreateToggle({
     Name = "Включить полет",
-    Description = "Управление: WASD - движение, Пробел - вверх, Ctrl - вниз",
+    Description = isMobile and "Управление: джойстик + кнопки ниже" or "Управление: WASD - движение, Пробел - вверх, Ctrl - вниз",
     CurrentValue = false,
     Callback = function(Value)
         ToggleFly(Value)
@@ -614,6 +655,32 @@ PlayerTab:CreateSlider({
         flySpeed = Value
     end
 }, "FlySpeed")
+
+-- КНОПКИ УПРАВЛЕНИЯ ДЛЯ ТЕЛЕФОНА (ПОКАЗЫВАЮТСЯ ТОЛЬКО НА ТЕЛЕФОНЕ)
+if isMobile then
+    PlayerTab:CreateDivider()
+    PlayerTab:CreateSection("📱 Управление полетом (телефон)")
+    
+    -- КНОПКА ВВЕРХ (УДЕРЖАНИЕ)
+    PlayerTab:CreateToggle({
+        Name = "⬆ ВВЕРХ (удержание)",
+        Description = "Держите включенным для подъема вверх",
+        CurrentValue = false,
+        Callback = function(Value)
+            SetFlyUp(Value)
+        end
+    }, "FlyUpToggle")
+    
+    -- КНОПКА ВНИЗ (УДЕРЖАНИЕ)
+    PlayerTab:CreateToggle({
+        Name = "⬇ ВНИЗ (удержание)",
+        Description = "Держите включенным для спуска вниз",
+        CurrentValue = false,
+        Callback = function(Value)
+            SetFlyDown(Value)
+        end
+    }, "FlyDownToggle")
+end
 
 PlayerTab:CreateDivider()
 
@@ -683,7 +750,7 @@ PlayerTab:CreateSlider({
 
 PlayerTab:CreateDivider()
 
--- ========== СЕКЦИЯ "ЗАЩИТА" (НОВАЯ) ==========
+-- СЕКЦИЯ "ЗАЩИТА"
 PlayerTab:CreateSection("🛡️ Защита")
 
 PlayerTab:CreateToggle({
@@ -924,7 +991,7 @@ local InfoTab = Window:CreateTab({
 
 InfoTab:CreateParagraph({
     Title = "XENO CORE",
-    Text = "Версия: 1.0\nРазработчик: ELPRIMO228RB\n\nФункции:\n• TPWALK - телепортационная ходьба\n• FLY - полноценный полет\n• INFINITE JUMP - бесконечные прыжки\n• NOCLIP - прохождение сквозь стены\n• TPTOOL - телепорт по клику\n• ESP - подсветка всех игроков\n• FLING - выкидывание игроков\n• ВЫКЛЮЧИТЬ УРОН - защита от урона\n• АНИМАЦИИ R15 - GUI с анимациями\n\nУправление полетом:\nWASD - движение\nПробел - вверх\nCtrl - вниз\n\nВкладка СКРИПТЫ:\n• FORSAKEN - скрипт для игры Forsaken\n• SMILE INFECTION - скрипт для игры Smile Infection"
+    Text = "Версия: 1.0\nРазработчик: ELPRIMO228RB\n\nФункции:\n• TPWALK - телепортационная ходьба\n• FLY - полноценный полет (поддержка телефона)\n• INFINITE JUMP - бесконечные прыжки\n• NOCLIP - прохождение сквозь стены\n• TPTOOL - телепорт по клику\n• ESP - подсветка всех игроков\n• FLING - выкидывание игроков\n• ВЫКЛЮЧИТЬ УРОН - защита от урона\n• АНИМАЦИИ R15 - GUI с анимациями\n\nУправление полетом на телефоне:\nДжойстик - движение\nКнопки ВВЕРХ/ВНИЗ в разделе FLY\n\nУправление полетом на ПК:\nWASD - движение\nПробел - вверх\nCtrl - вниз"
 })
 
 -- ========== ВКЛАДКА "КОНФИГИ" ==========
@@ -942,7 +1009,7 @@ Luna:Notification({
     Title = "XENO CORE",
     Icon = "rocket_launch",
     ImageSource = "Material",
-    Content = "Скрипт загружен! Добавлена защита от урона"
+    Content = isMobile and "Скрипт загружен! FLY адаптирован для телефона" or "Скрипт загружен!"
 })
 
 -- ========== АВТОЗАГРУЗКА КОНФИГОВ ==========
@@ -969,5 +1036,5 @@ end)
 
 print("[XENO CORE] ЗАГРУЗКА ЗАВЕРШЕНА")
 print("[XENO CORE] LUNA ВЕРСИЯ (АДАПТИРОВАНА ДЛЯ ТЕЛЕФОНА)")
-print("[XENO CORE] ДОБАВЛЕНА ЗАЩИТА ОТ УРОНА")
+print("[XENO CORE] FLY РАБОТАЕТ НА ТЕЛЕФОНЕ ЧЕРЕЗ КНОПКИ")
 print("[XENO CORE] by ELPRIMO228RB")
