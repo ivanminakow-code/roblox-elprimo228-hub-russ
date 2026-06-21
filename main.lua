@@ -2,7 +2,7 @@
 
 --[[
     XENO CORE - LUNA ВЕРСИЯ (АДАПТИРОВАНА ДЛЯ ТЕЛЕФОНА)
-    ВСЕ ФУНКЦИИ: TPWALK, FLY, INFINITE JUMP, NOCLIP, TPTOOL, ESP, FLING
+    ВСЕ ФУНКЦИИ: TPWALK, FLY, INFINITE JUMP, NOCLIP, TPTOOL, ESP, FLING, ХИТБОКС
     ВКЛАДКИ: ИГРОК, ВИЗУАЛ, СКРИПТЫ, АНИМАЦИИ, ИНФОРМАЦИЯ, КОНФИГИ
     by ELPRIMO228RB
 ]]
@@ -130,7 +130,7 @@ local tpwalkActive = false
 local tpwalkConn = nil
 local tpwalkSpeed = 0.15
 
--- FLY (С ПОДДЕРЖКОЙ ТЕЛЕФОНА)
+-- FLY
 local flyEnabled = false
 local flyConnection = nil
 local flySpeed = 40
@@ -167,6 +167,11 @@ local flingPower = 10000
 -- ВЫКЛЮЧИТЬ УРОН
 local damageDisabled = false
 local damageConnection = nil
+
+-- ХИТБОКС
+local hitboxEnabled = false
+local hitboxSize = 10
+local hitboxConnection = nil
 
 -- ========== ФУНКЦИЯ ПРОВЕРКИ ЖИВ ЛИ ИГРОК ==========
 local function isAlive()
@@ -293,7 +298,6 @@ local function ToggleFly(Value)
         
         if flyConnection then flyConnection:Disconnect() end
         
-        -- СБРАСЫВАЕМ УПРАВЛЕНИЕ
         flyMoveForward = false
         flyMoveBackward = false
         flyMoveLeft = false
@@ -325,7 +329,7 @@ local function ToggleFly(Value)
                 if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
             end
             
-            -- УПРАВЛЕНИЕ С ТЕЛЕФОНА (ЧЕРЕЗ ПЕРЕМЕННЫЕ)
+            -- УПРАВЛЕНИЕ С ТЕЛЕФОНА
             if isMobile then
                 if flyMoveForward then moveDirection = moveDirection + camera.CFrame.LookVector end
                 if flyMoveBackward then moveDirection = moveDirection - camera.CFrame.LookVector end
@@ -339,13 +343,12 @@ local function ToggleFly(Value)
             rootPart.Velocity = moveDirection * flySpeed
         end)
         
-        -- ЕСЛИ ТЕЛЕФОН - ПОКАЗЫВАЕМ ИНСТРУКЦИЮ
         if isMobile then
             Luna:Notification({
                 Title = "📱 FLY ДЛЯ ТЕЛЕФОНА",
                 Icon = "phone_android",
                 ImageSource = "Material",
-                Content = "Используйте джойстик для движения. Кнопки вверх/вниз в разделе FLY"
+                Content = "Используйте джойстик + кнопки ВВЕРХ/ВНИЗ"
             })
         end
         
@@ -590,8 +593,101 @@ local function ToggleFling(Value)
     end
 end
 
+-- ========== ХИТБОКС (С ПОДСВЕТКОЙ ЦВЕТОМ КОМАНДЫ) ==========
+local function ToggleHitbox(Value)
+    hitboxEnabled = Value
+    
+    if hitboxEnabled then
+        if hitboxConnection then hitboxConnection:Disconnect() end
+        
+        hitboxConnection = RunService.RenderStepped:Connect(function()
+            if not hitboxEnabled then
+                if hitboxConnection then hitboxConnection:Disconnect() end
+                return
+            end
+            
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local character = player.Character
+                    if character then
+                        local hrp = character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            pcall(function()
+                                -- РАЗМЕР ХИТБОКСА
+                                hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                                hrp.Transparency = 0.7
+                                hrp.Material = Enum.Material.Neon
+                                hrp.CanCollide = false
+                                
+                                -- ЦВЕТ ПО КОМАНДЕ (КАК В ESP)
+                                if player.TeamColor and player.TeamColor.Color then
+                                    hrp.Color = player.TeamColor.Color
+                                    hrp.BrickColor = BrickColor.new(player.TeamColor.Color)
+                                else
+                                    hrp.Color = Color3.fromRGB(128, 128, 128)
+                                    hrp.BrickColor = BrickColor.new("Really blue")
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end)
+        
+        Luna:Notification({
+            Title = "🎯 ХИТБОКС ВКЛЮЧЕН",
+            Icon = "target",
+            ImageSource = "Material",
+            Content = "Хитбоксы подсвечены цветом команд"
+        })
+        
+    else
+        if hitboxConnection then
+            hitboxConnection:Disconnect()
+            hitboxConnection = nil
+        end
+        
+        -- ВОССТАНАВЛИВАЕМ СТАНДАРТНЫЕ РАЗМЕРЫ
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local character = player.Character
+                if character then
+                    local hrp = character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        pcall(function()
+                            hrp.Size = Vector3.new(2, 2, 2)
+                            hrp.Transparency = 0
+                            hrp.Material = Enum.Material.Plastic
+                            hrp.CanCollide = true
+                        end)
+                    end
+                end
+            end
+        end
+        
+        Luna:Notification({
+            Title = "🎯 ХИТБОКС ВЫКЛЮЧЕН",
+            Icon = "target",
+            ImageSource = "Material",
+            Content = "Хитбоксы восстановлены"
+        })
+    end
+end
+
+-- ФУНКЦИЯ ДЛЯ ИЗМЕНЕНИЯ РАЗМЕРА ХИТБОКСА
+local function SetHitboxSize(Value)
+    hitboxSize = Value
+    if hitboxEnabled then
+        Luna:Notification({
+            Title = "🎯 РАЗМЕР ХИТБОКСА",
+            Icon = "target",
+            ImageSource = "Material",
+            Content = "Новый размер: " .. Value
+        })
+    end
+end
+
 -- ========== ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ FLY НА ТЕЛЕФОНЕ ==========
--- ЭТИ ФУНКЦИИ БУДУТ ВЫЗЫВАТЬСЯ ИЗ КНОПОК В GUI
 local function SetFlyUp(Value)
     flyMoveUp = Value
 end
@@ -656,12 +752,11 @@ PlayerTab:CreateSlider({
     end
 }, "FlySpeed")
 
--- КНОПКИ УПРАВЛЕНИЯ ДЛЯ ТЕЛЕФОНА (ПОКАЗЫВАЮТСЯ ТОЛЬКО НА ТЕЛЕФОНЕ)
+-- КНОПКИ УПРАВЛЕНИЯ ДЛЯ ТЕЛЕФОНА
 if isMobile then
     PlayerTab:CreateDivider()
     PlayerTab:CreateSection("📱 Управление полетом (телефон)")
     
-    -- КНОПКА ВВЕРХ (УДЕРЖАНИЕ)
     PlayerTab:CreateToggle({
         Name = "⬆ ВВЕРХ (удержание)",
         Description = "Держите включенным для подъема вверх",
@@ -671,7 +766,6 @@ if isMobile then
         end
     }, "FlyUpToggle")
     
-    -- КНОПКА ВНИЗ (УДЕРЖАНИЕ)
     PlayerTab:CreateToggle({
         Name = "⬇ ВНИЗ (удержание)",
         Description = "Держите включенным для спуска вниз",
@@ -761,6 +855,30 @@ PlayerTab:CreateToggle({
         ToggleDamage(Value)
     end
 }, "DamageToggle")
+
+PlayerTab:CreateDivider()
+
+-- ========== СЕКЦИЯ "ХИТБОКС" (НОВАЯ) ==========
+PlayerTab:CreateSection("🎯 Хитбокс")
+
+PlayerTab:CreateToggle({
+    Name = "Включить хитбокс",
+    Description = "Подсвечивает хитбоксы игроков цветом команды",
+    CurrentValue = false,
+    Callback = function(Value)
+        ToggleHitbox(Value)
+    end
+}, "HitboxToggle")
+
+PlayerTab:CreateSlider({
+    Name = "Размер хитбокса",
+    Range = {3, 30},
+    Increment = 1,
+    CurrentValue = 10,
+    Callback = function(Value)
+        SetHitboxSize(Value)
+    end
+}, "HitboxSize")
 
 -- ========== ВКЛАДКА "ВИЗУАЛ" ==========
 local VisualTab = Window:CreateTab({
@@ -991,7 +1109,7 @@ local InfoTab = Window:CreateTab({
 
 InfoTab:CreateParagraph({
     Title = "XENO CORE",
-    Text = "Версия: 1.0\nРазработчик: ELPRIMO228RB\n\nФункции:\n• TPWALK - телепортационная ходьба\n• FLY - полноценный полет (поддержка телефона)\n• INFINITE JUMP - бесконечные прыжки\n• NOCLIP - прохождение сквозь стены\n• TPTOOL - телепорт по клику\n• ESP - подсветка всех игроков\n• FLING - выкидывание игроков\n• ВЫКЛЮЧИТЬ УРОН - защита от урона\n• АНИМАЦИИ R15 - GUI с анимациями\n\nУправление полетом на телефоне:\nДжойстик - движение\nКнопки ВВЕРХ/ВНИЗ в разделе FLY\n\nУправление полетом на ПК:\nWASD - движение\nПробел - вверх\nCtrl - вниз"
+    Text = "Версия: 1.0\nРазработчик: ELPRIMO228RB\n\nФункции:\n• TPWALK - телепортационная ходьба\n• FLY - полноценный полет (поддержка телефона)\n• INFINITE JUMP - бесконечные прыжки\n• NOCLIP - прохождение сквозь стены\n• TPTOOL - телепорт по клику\n• ESP - подсветка всех игроков\n• FLING - выкидывание игроков\n• ВЫКЛЮЧИТЬ УРОН - защита от урона\n• ХИТБОКС - подсветка хитбоксов цветом команды\n• АНИМАЦИИ R15 - GUI с анимациями\n\nУправление полетом на телефоне:\nДжойстик - движение\nКнопки ВВЕРХ/ВНИЗ в разделе FLY\n\nУправление полетом на ПК:\nWASD - движение\nПробел - вверх\nCtrl - вниз"
 })
 
 -- ========== ВКЛАДКА "КОНФИГИ" ==========
@@ -1009,7 +1127,7 @@ Luna:Notification({
     Title = "XENO CORE",
     Icon = "rocket_launch",
     ImageSource = "Material",
-    Content = isMobile and "Скрипт загружен! FLY адаптирован для телефона" or "Скрипт загружен!"
+    Content = isMobile and "Скрипт загружен! FLY и ХИТБОКС для телефона" or "Скрипт загружен! Добавлен ХИТБОКС"
 })
 
 -- ========== АВТОЗАГРУЗКА КОНФИГОВ ==========
@@ -1032,9 +1150,13 @@ LocalPlayer.CharacterAdded:Connect(function()
         task.wait(0.3)
         ToggleDamage(true)
     end
+    if hitboxEnabled then
+        task.wait(0.3)
+        ToggleHitbox(true)
+    end
 end)
 
 print("[XENO CORE] ЗАГРУЗКА ЗАВЕРШЕНА")
 print("[XENO CORE] LUNA ВЕРСИЯ (АДАПТИРОВАНА ДЛЯ ТЕЛЕФОНА)")
-print("[XENO CORE] FLY РАБОТАЕТ НА ТЕЛЕФОНЕ ЧЕРЕЗ КНОПКИ")
+print("[XENO CORE] ДОБАВЛЕН ХИТБОКС С ПОДСВЕТКОЙ ЦВЕТОМ КОМАНДЫ")
 print("[XENO CORE] by ELPRIMO228RB")
